@@ -1271,6 +1271,9 @@ EOD;
                     $v = $this->domnodeToArray($child);
                     if (isset($child->tagName)) {
                         $t = $child->tagName;
+                        if (is_string($output)) {
+                            $output = array();
+                        }
                         if (!isset($output[$t])) {
                             $output[$t] = array();
                         }
