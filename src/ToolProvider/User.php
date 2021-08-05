@@ -309,7 +309,7 @@ class User
         } else if (!empty($names[0])) {
             $this->firstname = $names[0];
         } else {
-            $this->firstname = 'User';
+            $this->firstname = '';
         }
         if (!empty($lastname)) {
             $this->lastname = trim($lastname);
@@ -317,10 +317,10 @@ class User
         } else if (!empty($names[1])) {
             $this->lastname = $names[1];
         } else {
-            $this->lastname = $this->ltiUserId;
+            $this->lastname = '';
         }
         if (empty($this->fullname)) {
-            $this->fullname = "{$this->firstname} {$this->lastname}";
+            $this->fullname = trim($this->firstname.' '.$this->lastname);
         }
 
     }
