@@ -73,7 +73,7 @@ class DataConnector_mysql extends DataConnector
                     $consumer->consumerName = $row->consumer_name;
                     $consumer->consumerVersion = $row->consumer_version;
                     $consumer->consumerGuid = $row->consumer_guid;
-                    $consumer->profile = json_decode($row->profile);
+                    $consumer->profile = is_string($row->profile) ? json_decode($row->profile) : null;
                     $consumer->toolProxy = $row->tool_proxy;
                     $settings = unserialize($row->settings);
                     if (!is_array($settings)) {
@@ -308,7 +308,7 @@ class DataConnector_mysql extends DataConnector
                 $consumer->consumerName = $row->consumer_name;
                 $consumer->consumerVersion = $row->consumer_version;
                 $consumer->consumerGuid = $row->consumer_guid;
-                $consumer->profile = json_decode($row->profile);
+                $consumer->profile = is_string($row->profile) ? json_decode($row->profile) : null;
                 $consumer->toolProxy = $row->tool_proxy;
                 $settings = unserialize($row->settings);
                 if (!is_array($settings)) {

@@ -56,6 +56,18 @@ class ToolConsumer
  */
     public $consumerGuid = null;
 /**
+ * Tool consumer profile (as reported by last tool consumer connection).
+ *
+ * @var object|null $profile
+ */
+    public $profile = null;
+/**
+ * Tool proxy document.
+ *
+ * @var string|null $toolProxy
+ */
+    public $toolProxy = null;
+/**
  * Optional CSS path (as reported by last tool consumer connection).
  *
  * @var string $cssPath
