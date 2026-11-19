@@ -64,6 +64,13 @@ class HTTPMessage
     public $error = '';
 
 /**
+ * Decoded JSON response.
+ *
+ * @var object|array|null $responseJson
+ */
+    public $responseJson = null;
+
+/**
  * Request URL.
  *
  * @var url $url
