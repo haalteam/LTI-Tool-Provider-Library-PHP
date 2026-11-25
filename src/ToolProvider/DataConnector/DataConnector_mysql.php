@@ -51,6 +51,8 @@ class DataConnector_mysql extends DataConnector
                            "FROM {$this->dbTableNamePrefix}" . DataConnector::CONSUMER_TABLE_NAME . ' ' .
                            "WHERE consumer_pk = %d",
                            $consumer->getRecordId());
+        } else if (is_null($consumer->getKey())) {
+            return false;
         } else {
             $key256 = DataConnector::getConsumerKey($consumer->getKey());
             $sql = sprintf('SELECT consumer_pk, name, consumer_key256, consumer_key, secret, lti_version, ' .
@@ -613,16 +615,9 @@ class DataConnector_mysql extends DataConnector
         $time = time();
         $now = date("{$this->dateFormat} {$this->timeFormat}", $time);
         $settingsValue = serialize($resourceLink->getSettings());
-        if (!empty($resourceLink->getContext())) {
-            $consumerId = 'NULL';
-            $contextId = strval($resourceLink->getContext()->getRecordId());
-        } else if (!empty($resourceLink->getContextId())) {
-            $consumerId = 'NULL';
-            $contextId = strval($resourceLink->getContextId());
-        } else {
-            $consumerId = strval($resourceLink->getConsumer()->getRecordId());
-            $contextId = 'NULL';
-        }
+        list($consumerPk, $contextPk) = self::resourceLinkOwnerIds($resourceLink);
+        $consumerId = is_null($consumerPk) ? 'NULL' : strval($consumerPk);
+        $contextId = is_null($contextPk) ? 'NULL' : strval($contextPk);
         $id = $resourceLink->getRecordId();
         if (empty($id)) {
             $sql = sprintf("INSERT INTO {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' (consumer_pk, context_pk, ' .
@@ -639,7 +634,7 @@ class DataConnector_mysql extends DataConnector
                            $consumerId, DataConnector::quoted($resourceLink->getId()),
                            DataConnector::quoted($settingsValue), $primaryResourceLinkId, $approved, DataConnector::quoted($now),
                            $contextId, $id);
-        } else {
+        } else if ($consumerId !== 'NULL') {
             $sql = sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
                            'context_pk = %s, lti_resource_link_id = %s, settings = %s, '.
                            'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
@@ -647,6 +642,14 @@ class DataConnector_mysql extends DataConnector
                            $contextId, DataConnector::quoted($resourceLink->getId()),
                            DataConnector::quoted($settingsValue), $primaryResourceLinkId, $approved, DataConnector::quoted($now),
                            $consumerId, $id);
+        } else {
+            $sql = sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
+                           'lti_resource_link_id = %s, settings = %s, '.
+                           'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
+                           'WHERE (resource_link_pk = %d)',
+                           DataConnector::quoted($resourceLink->getId()),
+                           DataConnector::quoted($settingsValue), $primaryResourceLinkId, $approved, DataConnector::quoted($now),
+                           $id);
         }
         $ok = mysql_query($sql);
         if ($ok) {

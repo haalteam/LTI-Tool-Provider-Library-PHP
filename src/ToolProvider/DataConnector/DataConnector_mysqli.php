@@ -51,6 +51,8 @@ class DataConnector_mysqli extends DataConnector
                            "FROM {$this->dbTableNamePrefix}" . DataConnector::CONSUMER_TABLE_NAME . ' ' .
                            "WHERE consumer_pk = %d",
                            $consumer->getRecordId());
+        } else if (is_null($consumer->getKey())) {
+            return false;
         } else {
             $key256 = DataConnector::getConsumerKey($consumer->getKey());
             $sql = sprintf('SELECT consumer_pk, name, consumer_key256, consumer_key, secret, lti_version, ' .
@@ -612,42 +614,8 @@ class DataConnector_mysqli extends DataConnector
         }
         $time = time();
         $now = date("{$this->dateFormat} {$this->timeFormat}", $time);
-        $settingsValue = serialize($resourceLink->getSettings());
-        if (!is_null($resourceLink->getContext())) {
-            $consumerId = 'NULL';
-            $contextId = strval($resourceLink->getContext()->getRecordId());
-        } else if (!is_null($resourceLink->getContextId())) {
-            $consumerId = 'NULL';
-            $contextId = strval($resourceLink->getContextId());
-        } else {
-            $consumerId = strval($resourceLink->getConsumer()->getRecordId());
-            $contextId = 'NULL';
-        }
         $id = $resourceLink->getRecordId();
-        if (empty($id)) {
-            $sql = sprintf("INSERT INTO {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' (consumer_pk, context_pk, ' .
-                           'lti_resource_link_id, settings, primary_resource_link_pk, share_approved, created, updated) ' .
-                           'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
-                           $consumerId, $contextId, $this->escape($resourceLink->getId()),
-                           $this->escape($settingsValue),
-                           $primaryResourceLinkId, $approved, $this->escape($now), $this->escape($now));
-        } else if ($contextId !== 'NULL') {
-            $sql = sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
-                           'consumer_pk = %s, lti_resource_link_id = %s, settings = %s, '.
-                           'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
-                           'WHERE (context_pk = %s) AND (resource_link_pk = %d)',
-                           $consumerId, $this->escape($resourceLink->getId()),
-                           $this->escape($settingsValue), $primaryResourceLinkId, $approved, $this->escape($now),
-                           $contextId, $id);
-        } else {
-            $sql = sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
-                           'context_pk = %s, lti_resource_link_id = %s, settings = %s, '.
-                           'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
-                           'WHERE (consumer_pk = %s) AND (resource_link_pk = %d)',
-                           $contextId, $this->escape($resourceLink->getId()),
-                           $this->escape($settingsValue), $primaryResourceLinkId, $approved, $this->escape($now),
-                           $consumerId, $id);
-        }
+        $sql = $this->saveResourceLinkSql($resourceLink, $primaryResourceLinkId, $approved, $now);
         $ok = mysqli_query($this->db, $sql);
         if ($ok) {
             if (empty($id)) {
@@ -658,6 +626,61 @@ class DataConnector_mysqli extends DataConnector
         }
 
         return $ok;
+
+    }
+
+/**
+ * SQL used to insert or update a resource link.
+ *
+ * @param ResourceLink $resourceLink          Resource link being saved
+ * @param string       $primaryResourceLinkId Primary link id literal, or NULL
+ * @param string       $approved              Share-approved literal
+ * @param string       $now                   Timestamp literal
+ *
+ * @return string
+ */
+    protected function saveResourceLinkSql($resourceLink, $primaryResourceLinkId, $approved, $now)
+    {
+
+        $settingsValue = serialize($resourceLink->getSettings());
+        list($consumerPk, $contextPk) = self::resourceLinkOwnerIds($resourceLink);
+        $consumerId = is_null($consumerPk) ? 'NULL' : strval($consumerPk);
+        $contextId = is_null($contextPk) ? 'NULL' : strval($contextPk);
+        $id = $resourceLink->getRecordId();
+        if (empty($id)) {
+            return sprintf("INSERT INTO {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' (consumer_pk, context_pk, ' .
+                           'lti_resource_link_id, settings, primary_resource_link_pk, share_approved, created, updated) ' .
+                           'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+                           $consumerId, $contextId, $this->escape($resourceLink->getId()),
+                           $this->escape($settingsValue),
+                           $primaryResourceLinkId, $approved, $this->escape($now), $this->escape($now));
+        }
+        if ($contextId !== 'NULL') {
+            return sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
+                           'consumer_pk = %s, lti_resource_link_id = %s, settings = %s, '.
+                           'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
+                           'WHERE (context_pk = %s) AND (resource_link_pk = %d)',
+                           $consumerId, $this->escape($resourceLink->getId()),
+                           $this->escape($settingsValue), $primaryResourceLinkId, $approved, $this->escape($now),
+                           $contextId, $id);
+        }
+        if ($consumerId !== 'NULL') {
+            return sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
+                           'context_pk = %s, lti_resource_link_id = %s, settings = %s, '.
+                           'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
+                           'WHERE (consumer_pk = %s) AND (resource_link_pk = %d)',
+                           $contextId, $this->escape($resourceLink->getId()),
+                           $this->escape($settingsValue), $primaryResourceLinkId, $approved, $this->escape($now),
+                           $consumerId, $id);
+        }
+
+        return sprintf("UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
+                       'lti_resource_link_id = %s, settings = %s, '.
+                       'primary_resource_link_pk = %s, share_approved = %s, updated = %s ' .
+                       'WHERE (resource_link_pk = %d)',
+                       $this->escape($resourceLink->getId()),
+                       $this->escape($settingsValue), $primaryResourceLinkId, $approved, $this->escape($now),
+                       $id);
 
     }
 

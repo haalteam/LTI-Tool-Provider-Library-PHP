@@ -501,12 +501,66 @@ class DataConnector
     protected static function getConsumerKey($key)
     {
 
+        if (is_null($key)) {
+            return null;
+        }
         $len = strlen($key);
         if ($len > 255) {
             $key = 'sha512:' . hash('sha512', $key);
         }
 
         return $key;
+
+    }
+
+/**
+ * Normalise a database record id for SQL.
+ *
+ * Blank values, including null, become null so callers do not interpolate an empty token into a query.
+ *
+ * @param mixed $id Record id
+ *
+ * @return int|null Positive record id, or null when the value cannot be used as one
+ */
+    protected static function normalizeRecordId($id)
+    {
+
+        if (is_int($id)) {
+            return ($id > 0) ? $id : null;
+        }
+        if (is_string($id) && ctype_digit($id) && (intval($id) > 0)) {
+            return intval($id);
+        }
+
+        return null;
+
+    }
+
+/**
+ * Consumer and context record ids that own a resource link.
+ *
+ * A link is stored against a context when one is known, otherwise against its
+ * consumer. Missing ids stay null instead of becoming an empty SQL literal.
+ *
+ * @param ResourceLink $resourceLink Resource link being saved
+ *
+ * @return array Two elements: consumer record id and context record id
+ */
+    protected static function resourceLinkOwnerIds($resourceLink)
+    {
+
+        $context = $resourceLink->getContext();
+        $contextId = is_null($context) ? null : self::normalizeRecordId($context->getRecordId());
+        if (is_null($contextId)) {
+            $contextId = self::normalizeRecordId($resourceLink->getContextId());
+        }
+        if (!is_null($contextId)) {
+            return array(null, $contextId);
+        }
+        $consumer = $resourceLink->getConsumer();
+        $consumerId = is_null($consumer) ? null : self::normalizeRecordId($consumer->getRecordId());
+
+        return array($consumerId, null);
 
     }
 
