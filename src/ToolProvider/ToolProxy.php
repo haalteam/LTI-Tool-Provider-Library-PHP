@@ -54,6 +54,24 @@ class ToolProxy
  * @var MediaType\ToolProxy $toolProxy
  */
     private $toolProxy = null;
+/**
+ * When the tool proxy was created.
+ *
+ * @var int|null $created
+ */
+    public $created = null;
+/**
+ * When the tool proxy was last updated.
+ *
+ * @var int|null $updated
+ */
+    public $updated = null;
+/**
+ * Whether the tool proxy is enabled.
+ *
+ * @var bool $enabled
+ */
+    public $enabled = false;
 
 /**
  * Class constructor.
@@ -67,7 +85,7 @@ class ToolProxy
         $this->initialize();
         $this->dataConnector = $dataConnector;
         if (!empty($id)) {
-            $this->load($id);
+            $this->load($id, false);
         } else {
             $this->recordId = DataConnector::getRandomString(32);
         }
@@ -173,11 +191,12 @@ class ToolProxy
 /**
  * Load the tool proxy from the database.
  *
- * @param string  $id        The tool proxy id value
+ * @param string  $id         The tool proxy id value
+ * @param boolean $autoEnable True if the tool proxy should be enabled when it cannot be loaded
  *
  * @return boolean True if the tool proxy was successfully loaded
  */
-    private function load($id)
+    private function load($id, $autoEnable = false)
     {
 
         $this->initialize();
