@@ -66,6 +66,8 @@ class DataConnector_pdo extends DataConnector
             $query = $this->db->prepare($sql);
             $id = $consumer->getRecordId();
             $query->bindValue('id', $id, PDO::PARAM_INT);
+        } else if (is_null($consumer->getKey())) {
+            return false;
         } else {
             $sql = 'SELECT consumer_pk, name, consumer_key256, consumer_key, secret, lti_version, ' .
                    'consumer_name, consumer_version, consumer_guid, ' .
@@ -689,16 +691,7 @@ class DataConnector_pdo extends DataConnector
         $time = time();
         $now = date("{$this->dateFormat} {$this->timeFormat}", $time);
         $settingsValue = serialize($resourceLink->getSettings());
-        if (!empty($resourceLink->getContext())) {
-            $consumerId = null;
-            $contextId = strval($resourceLink->getContext()->getRecordId());
-        } else if (!empty($resourceLink->getContextId())) {
-            $consumerId = null;
-            $contextId = strval($resourceLink->getContextId());
-        } else {
-            $consumerId = strval($resourceLink->getConsumer()->getRecordId());
-            $contextId = null;
-        }
+        list($consumerId, $contextId) = self::resourceLinkOwnerIds($resourceLink);
         if (empty($resourceLink->primaryResourceLinkId)) {
             $primaryResourceLinkId = null;
         } else {
@@ -731,7 +724,7 @@ class DataConnector_pdo extends DataConnector
             $query->bindValue('share_approved', $resourceLink->shareApproved, PDO::PARAM_INT);
             $query->bindValue('updated', $now, PDO::PARAM_STR);
             $query->bindValue('id', $id, PDO::PARAM_INT);
-        } else {
+        } else if (!is_null($consumerId)) {
             $sql = "UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
                    'context_pk = :ctx, lti_resource_link_id = :rlid, settings = :settings, '.
                    'primary_resource_link_pk = :prlid, share_approved = :share_approved, updated = :updated ' .
@@ -744,6 +737,18 @@ class DataConnector_pdo extends DataConnector
             $query->bindValue('share_approved', $resourceLink->shareApproved, PDO::PARAM_INT);
             $query->bindValue('updated', $now, PDO::PARAM_STR);
             $query->bindValue('cid', $consumerId, PDO::PARAM_INT);
+            $query->bindValue('id', $id, PDO::PARAM_INT);
+        } else {
+            $sql = "UPDATE {$this->dbTableNamePrefix}" . DataConnector::RESOURCE_LINK_TABLE_NAME . ' SET ' .
+                   'lti_resource_link_id = :rlid, settings = :settings, '.
+                   'primary_resource_link_pk = :prlid, share_approved = :share_approved, updated = :updated ' .
+                   'WHERE (resource_link_pk = :id)';
+            $query = $this->db->prepare($sql);
+            $query->bindValue('rlid', $resourceLink->getId(), PDO::PARAM_STR);
+            $query->bindValue('settings', $settingsValue, PDO::PARAM_STR);
+            $query->bindValue('prlid', $primaryResourceLinkId, PDO::PARAM_INT);
+            $query->bindValue('share_approved', $resourceLink->shareApproved, PDO::PARAM_INT);
+            $query->bindValue('updated', $now, PDO::PARAM_STR);
             $query->bindValue('id', $id, PDO::PARAM_INT);
         }
         $ok = $query->execute();

@@ -993,9 +993,6 @@ EOD;
                     $contentItemId = $_POST['custom_content_item_id'];
                 }
                 $this->resourceLink = ResourceLink::fromConsumer($this->consumer, trim($_POST['resource_link_id']), $contentItemId);
-                if (!empty($this->context)) {
-                    $this->resourceLink->setContextId($this->context->getRecordId());
-                }
                 $title = '';
                 if (isset($_POST['resource_link_title'])) {
                     $title = trim($_POST['resource_link_title']);
@@ -1144,6 +1141,18 @@ EOD;
             $this->context->save();
         }
         if ($this->ok && isset($this->resourceLink)) {
+
+// Attach the context only after it has a record id. setContextId(null) clears
+// the link's consumer as well, and the subsequent UPDATE is not valid SQL.
+            if (isset($this->context)) {
+                $contextRecordId = $this->context->getRecordId();
+                if (is_string($contextRecordId) && ctype_digit($contextRecordId)) {
+                    $contextRecordId = intval($contextRecordId);
+                }
+                if (is_int($contextRecordId) && ($contextRecordId > 0)) {
+                    $this->resourceLink->setContextId($contextRecordId);
+                }
+            }
 
 // Check if a share arrangement is in place for this resource link
             $this->ok = $this->checkForShare();
